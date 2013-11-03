@@ -1,3 +1,10 @@
+bin/
+lib/
+build/
+html/
+latex/
+
+
 *\.o
 *\.a
 
