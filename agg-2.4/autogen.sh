@@ -12,7 +12,12 @@ autoheader
 autoconf
 
 # set up libtool
-libtoolize --force
+if which glibtoolize ; then
+    # OSX homebrew has glibtoolize but no libtoolize
+    glibtoolize --force
+else
+    libtoolize --force
+fi
 
 # invoke automake
 automake --foreign --add-missing --ignore-deps
