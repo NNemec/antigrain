@@ -1,7 +1,8 @@
-AC_INIT(src/agg_arc.cpp) # give me a source file, any source file...
+AC_INIT(agg, 2.4.0)
+AC_CONFIG_SRCDIR(src/agg_arc.cpp) # give me a source file, any source file...
 AC_CANONICAL_TARGET
 AC_CONFIG_HEADERS(include/config.h)
-AM_INIT_AUTOMAKE(agg, 2.4.0)
+AM_INIT_AUTOMAKE
 
 
 dnl Checks for programs.
