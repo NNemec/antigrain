@@ -1,17 +1,15 @@
-AC_INIT(src/agg_arc.cpp) # give me a source file, any source file...
+AC_INIT(agg, 2.4.0)
+AC_CONFIG_SRCDIR(src/agg_arc.cpp) # give me a source file, any source file...
 AC_CANONICAL_TARGET
+AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS(include/config.h)
-AM_INIT_AUTOMAKE(agg, 2.4.0)
+AM_INIT_AUTOMAKE
 
 
 dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
 AC_ISC_POSIX
-
-if test "x$U" != "x"; then
-  AC_MSG_ERROR(Compiler not ANSI compliant)
-fi
 AM_PROG_LIBTOOL
 AC_PROG_INSTALL
 

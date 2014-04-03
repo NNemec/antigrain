@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # autogen.sh
 #
 # invoke the auto* tools to create the configuration/build system
@@ -12,12 +14,17 @@ autoheader
 autoconf
 
 # set up libtool
-libtoolize --force
+if which glibtoolize ; then
+    # OSX homebrew has glibtoolize but no libtoolize
+    glibtoolize --copy --force
+else
+    libtoolize --copy --force
+fi
 
 # invoke automake
-automake --foreign --add-missing --ignore-deps
+automake --copy --foreign --add-missing --ignore-deps
 
 # and finally invoke our new configure
-./configure $*
+#./configure $*
 
 # end

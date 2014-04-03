@@ -1,0 +1,12 @@
+*.a
+*.o
+*.la
+*.lo
+.libs/
+autom4te.cache/
+config.log
+config.status
+Makefile
+stamp-h1
+agg-2.4/include/config.h
+agg-2.4/libagg.pc
