@@ -16117,6 +16117,7 @@ if test "$no_x" = "yes"; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: *** X11 not found! Omitting X11 layer." >&5
 $as_echo "$as_me: WARNING: *** X11 not found! Omitting X11 layer." >&2;}
 fi
+
  if test x$no_x = x -a xno != x$enable_platform -a x$win32_host != xyes; then
   ENABLE_X11_TRUE=
   ENABLE_X11_FALSE='#'
