@@ -1,6 +1,7 @@
 //----------------------------------------------------------------------------
 // Anti-Grain Geometry - Version 2.4
 // Copyright (C) 2002-2005 Maxim Shemanarev (http://www.antigrain.com)
+// Copyright (C) 2014 Sebastian Kloska (oncaphillis@snafu.de)
 //
 // Permission to copy, use, modify, sell and distribute this software 
 // is granted provided this copyright notice appears in all copies. 
@@ -19,6 +20,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <iostream>
 #include "agg_basics.h"
 #include "agg_math.h"
 #include "agg_array.h"
@@ -26,15 +28,43 @@
 
 namespace agg
 {
+    // A bit if SFINAE magic helps us to make the subpixel shift value
+    // variable. This value was previously defined as the enum
+    // gradient_subpixel_shift and determines the size of the precision
+    // for AGGs fixed-point arithmetic. The previous value was 4 which
+    // allows for 16 different values after the dot. In some cases this might
+    // result in jaggy gradients.
+    // The SFINAE struct allows the value of subpixel_shift to be determined
+    // via the concrete GradientF template argument of span_gradient<...>
+    // If the class does not provide its own constant the old constant value
+    // will still be used. Otherwise we "inherit" the value from the gradient function.
 
-    enum gradient_subpixel_scale_e
+    template<class GradientF>
+    class gradient_props
     {
-        gradient_subpixel_shift = 4,                              //-----gradient_subpixel_shift
-        gradient_subpixel_scale = 1 << gradient_subpixel_shift,   //-----gradient_subpixel_scale
-        gradient_subpixel_mask  = gradient_subpixel_scale - 1     //-----gradient_subpixel_mask
+    private:
+        typedef char Yes;
+        typedef char No[2];
+
+        template<typename X,const X *> struct has;
+        template <typename Y> static Yes & Test(has<int,&Y::subpixel_shift>*);
+        template <typename Y> static  No & Test(...);
+        template<class X,bool B>
+        struct V
+        {
+            static const int value = 4;
+        };
+
+        template<class X>
+        struct V<X,true>
+        {
+            static const int value=X::subpixel_shift;
+        };
+    public:
+        static const int subpixel_shift = V<GradientF,sizeof(Test<GradientF>(0))==sizeof(Yes)>::value;
+        static const int subpixel_scale = 1 << subpixel_shift;
+        static const int subpixel_mask  = subpixel_scale - 1;
     };
-
-
 
     //==========================================================span_gradient
     template<class ColorT,
@@ -49,8 +79,7 @@ namespace agg
 
         enum downscale_shift_e
         {
-            downscale_shift = interpolator_type::subpixel_shift - 
-                              gradient_subpixel_shift
+            downscale_shift = interpolator_type::subpixel_shift - gradient_props<GradientF>::subpixel_shift
         };
 
         //--------------------------------------------------------------------
@@ -64,23 +93,24 @@ namespace agg
             m_interpolator(&inter),
             m_gradient_function(&gradient_function),
             m_color_function(&color_function),
-            m_d1(iround(d1 * gradient_subpixel_scale)),
-            m_d2(iround(d2 * gradient_subpixel_scale))
-        {}
+            m_d1(iround(d1 * gradient_props<GradientF>::subpixel_scale)),
+            m_d2(iround(d2 * gradient_props<GradientF>::subpixel_scale))
+        {
+        }
 
         //--------------------------------------------------------------------
         interpolator_type& interpolator() { return *m_interpolator; }
         const GradientF& gradient_function() const { return *m_gradient_function; }
         const ColorF& color_function() const { return *m_color_function; }
-        double d1() const { return double(m_d1) / gradient_subpixel_scale; }
-        double d2() const { return double(m_d2) / gradient_subpixel_scale; }
+        double d1() const { return double(m_d1) / gradient_props<GradientF>::subpixel_scale; }
+        double d2() const { return double(m_d2) / gradient_props<GradientF>::subpixel_scale; }
 
         //--------------------------------------------------------------------
         void interpolator(interpolator_type& i) { m_interpolator = &i; }
         void gradient_function(const GradientF& gf) { m_gradient_function = &gf; }
         void color_function(const ColorF& cf) { m_color_function = &cf; }
-        void d1(double v) { m_d1 = iround(v * gradient_subpixel_scale); }
-        void d2(double v) { m_d2 = iround(v * gradient_subpixel_scale); }
+        void d1(double v) { m_d1 = iround(v * gradient_props<GradientF>::subpixel_scale); }
+        void d2(double v) { m_d2 = iround(v * gradient_props<GradientF>::subpixel_scale); }
 
         //--------------------------------------------------------------------
         void prepare() {}
@@ -158,11 +188,6 @@ namespace agg
 		// VFALCO
     };
 
-
-
-
-
-
     //==========================================================gradient_circle
     class gradient_circle
     {
@@ -196,12 +221,14 @@ namespace agg
     };
 
     //====================================================gradient_radial_focus
-    class gradient_radial_focus
+    template<class T=void>
+    class basic_gradient_radial_focus
     {
     public:
+        
         //---------------------------------------------------------------------
-        gradient_radial_focus() : 
-            m_r(100 * gradient_subpixel_scale), 
+        basic_gradient_radial_focus() :
+            m_r(100 * gradient_props<T>::subpixel_scale),
             m_fx(0), 
             m_fy(0)
         {
@@ -209,10 +236,10 @@ namespace agg
         }
 
         //---------------------------------------------------------------------
-        gradient_radial_focus(double r, double fx, double fy) : 
-            m_r (iround(r  * gradient_subpixel_scale)), 
-            m_fx(iround(fx * gradient_subpixel_scale)), 
-            m_fy(iround(fy * gradient_subpixel_scale))
+        basic_gradient_radial_focus(double r, double fx, double fy) :
+            m_r (iround(r  * gradient_props<T>::subpixel_scale)),
+            m_fx(iround(fx * gradient_props<T>::subpixel_scale)),
+            m_fy(iround(fy * gradient_props<T>::subpixel_scale))
         {
             update_values();
         }
@@ -220,16 +247,16 @@ namespace agg
         //---------------------------------------------------------------------
         void init(double r, double fx, double fy)
         {
-            m_r  = iround(r  * gradient_subpixel_scale);
-            m_fx = iround(fx * gradient_subpixel_scale);
-            m_fy = iround(fy * gradient_subpixel_scale);
+            m_r  = iround(r  * gradient_props<T>::subpixel_scale);
+            m_fx = iround(fx * gradient_props<T>::subpixel_scale);
+            m_fy = iround(fy * gradient_props<T>::subpixel_scale);
             update_values();
         }
 
         //---------------------------------------------------------------------
-        double radius()  const { return double(m_r)  / gradient_subpixel_scale; }
-        double focus_x() const { return double(m_fx) / gradient_subpixel_scale; }
-        double focus_y() const { return double(m_fy) / gradient_subpixel_scale; }
+        double radius()  const { return double(m_r)  / gradient_props<T>::subpixel_scale; }
+        double focus_x() const { return double(m_fx) / gradient_props<T>::subpixel_scale; }
+        double focus_y() const { return double(m_fy) / gradient_props<T>::subpixel_scale; }
 
         //---------------------------------------------------------------------
         int calculate(int x, int y, int) const
@@ -274,7 +301,116 @@ namespace agg
         double m_fy2;
         double m_mul;
     };
+    typedef basic_gradient_radial_focus<> gradient_radial_focus;
 
+    //==============================================================gradient_biradial
+
+    /** A gradient which generates a
+     * radial grandient as in PDF or Postscript documents.
+     * The gradient is defined between two circles which do *not*
+     * have to be concenctrical.
+     *
+     * The series of circles may be defined an a horizontal line (x0..y1)
+     * with radiues (r0...r1). For a given x we nay calculate y = f(x,t) as.
+     *
+     * y = sqrt( ( r0 + ( r1 - r0 ) * t ) ^ 2 - ( x -  ( x0 + ( x1 - x0 ) * t ) ) ^ 2 )
+     *
+     * The gradient has to solve the problem t = f(x,y) for which there are two solutions
+     * implemented in the method fl(...) and fr(...)
+     *
+     * In contrast to theother gradient_* classes the calculate method of this class
+     * is *not* static since we need the values r0 and r1 attached to the gradient.
+     */
+
+    template<typename T=void>
+    class basic_gradient_biradial
+    {
+    public:
+        basic_gradient_biradial()
+            :m_r0(0), m_r1(0), m_x0(0), m_x1(0), m_xi(0),
+             m_c0(0), m_c1(0), m_c2(0), m_c3(0),
+             m_c4(0), m_c5(0), m_c6(0)
+        {
+        }
+
+        ~basic_gradient_biradial()
+        {
+        }
+
+        int calculate(int x,int y,int d) const
+        {
+            double t = fl(x,y);
+
+            if( t!=t || t> 1 )
+                t = fr(x,y);
+            
+            // Here we have to fine tune whenever we implment a proper [extend,extend]
+            // like in PDF or Postscript
+            return t!=t ? 0 : t * d < m_xi ? 0 : t < 0 ? 0 : t > 1 ? d : t * d;
+        }
+
+        void set_radius(int r0,int r1)
+        {
+            m_r0 = r0 << gradient_props<T>::subpixel_shift;
+            m_r1 = r1 << gradient_props<T>::subpixel_shift;
+            calc_const();
+        }
+
+        void set_center(int x0,int x1)
+        {
+            m_x0 = x0 << gradient_props<T>::subpixel_shift;
+            m_x1 = x1 << gradient_props<T>::subpixel_shift;
+            calc_const();
+        }
+
+    private:
+
+        /** Recalculate the constants for our t=f(x,y). There are a couple
+         * of values only depending on r0..r1 and x0..x1 which we only have
+         * to calculate once whenever these values change.
+         */
+
+        void calc_const()
+        {
+            m_c0 =  ( m_x1 * m_x1) - 2 * m_x0 * m_x1 + (m_x0 * m_x0) - (m_r1 * m_r1) + 2 * m_r0 * m_r1 - (m_r0 * m_r0);
+            m_c1 = -( m_x1 * m_x1) + 2 * m_x0 * m_x1 - (m_x0 * m_x0) + (m_r1 * m_r1) - 2 * m_r0 * m_r1 + (m_r0 * m_r0);
+            m_c2 = m_r0 * m_r0 * m_x1 * m_x1;
+            m_c3 = 2 * m_r0 * m_r1 - 2 * m_r0 * m_r0;
+            m_c4 = 2 * m_r0 * m_r1 * m_x0;
+            m_c5 = (2 * m_r0 * m_r1 - 2 * (m_r1 * m_r1));
+            m_c6 = (m_r1 * m_r1) - 2 * m_r0 * m_r1 + (m_r0* m_r0);
+
+            // This is the absolut minimum for which we calculate values
+            m_xi = -m_r0 / ((m_r1 - m_r0) / (m_x1 - m_x0)) + m_x0;
+        }
+
+        // The first solution for t = f(x,y)
+        double fr(int x,int y) const
+        {
+            return -(::sqrt( double(m_c1) * double(y *y) + m_c2 + (m_c3 * x - m_c4)
+                         * m_x1 + (m_r1 * m_r1) * (m_x0 * m_x0) + m_c5 * x * m_x0 + m_c6 * double(x * x))
+                      + (m_x0 - x) * m_x1 - (m_x0 * m_x0) + double(x) * m_x0 - m_r0 * m_r1 + (m_r0 * m_r0))
+                    / double(m_c0);
+        }
+
+        // The second solution for t = f(x,y)
+        double fl(int x,int y) const
+        {
+            return (sqrt( double(m_c1) * double(y * y) + m_c2 + (m_c3 * x - m_c4) * m_x1
+                          + (m_r1 * m_r1) * (m_x0 * m_x0) + m_c5 * x * m_x0 + m_c6 * double(x*x))
+                    + double(x-m_x0) * m_x1 + (m_x0 * m_x0) - double(x) * m_x0 + m_r0 * m_r1 - (m_r0 * m_r0) )
+                / double(m_c0);
+        }
+
+        // minimal and maximal x and r
+        double m_r0, m_r1, m_x0, m_x1,m_xi;
+
+        // various constants we can pre-calc for t = f(x,y)
+        double m_c0, m_c1, m_c2, m_c3;
+        double m_c4, m_c5, m_c6;
+    };
+
+    typedef basic_gradient_biradial<> gradient_biradial;
 
     //==============================================================gradient_x
     class gradient_x
@@ -355,6 +491,10 @@ namespace agg
     template<class GradientF> class gradient_reflect_adaptor
     {
     public:
+
+        static const int subpixel_shift = gradient_props<GradientF>::subpixel_shift;
+        static const int subpixel_scale = gradient_props<GradientF>::subpixel_scale;
+
         gradient_reflect_adaptor(const GradientF& gradient) : 
             m_gradient(&gradient) {}
 

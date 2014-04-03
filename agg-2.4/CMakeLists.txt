@@ -1,7 +1,10 @@
 PROJECT( antigrain )
 
+SET(CMAKE_C_FLAGS "-fPIC ${CMAKE_CFLAGS}")
+
 # additional are modified Find routines
 SET ( CMAKE_MODULE_PATH "${antigrain_SOURCE_DIR}/bin" )
+# SET( CMAKE_CXX_FLAGS "-fPIC -shared ${CMAKE_CXX_FLAGS}")
 
 CMAKE_MINIMUM_REQUIRED( VERSION 2.4.8 )
 
@@ -51,7 +54,6 @@ IF(UNIX)
         INCLUDE_DIRECTORIES(${X11_INCLUDE_DIRS})
         LINK_LIBRARIES(${X11_LIBRARIES})
     ENDIF(X11_FOUND)
-
 ENDIF(UNIX)
 
 # more specific set platform code part to use for different compilers/tool sets
@@ -169,6 +171,11 @@ IF ( agg_USE_AGG2D_FREETYPE )
     ADD_DEFINITIONS( -DAGG2D_USE_FREETYPE )
     SET( AGG_FLAGS ${AGG_FLAGS} -DAGG2D_USE_FREETYPE )    
 ENDIF ( agg_USE_AGG2D_FREETYPE )
+
+
+IF( UNIX AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" )
+ SET( CMAKE_CXX_FLAGS "-fPIC ${CMAKE_CXX_FLAGS}")
+ENDIF( UNIX AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" )
 
 # sld as platform or os
 IF( SDL_FOUND AND agg_USE_SDL_PLATFORM )

@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
+
 #include "agg_rendering_buffer.h"
 #include "agg_rasterizer_scanline_aa.h"
 #include "agg_scanline_u.h"
@@ -7,10 +9,12 @@
 #include "agg_conv_transform.h"
 #include "agg_color_rgba.h"
 #include "agg_color_gray.h"
+#include "agg_color_device_na.h"
 #include "agg_span_allocator.h"
 #include "agg_span_gradient.h"
 #include "agg_span_interpolator_linear.h"
 #include "agg_renderer_scanline.h"
+// #include "agg_path.h"
 #include "ctrl/agg_rbox_ctrl.h"
 #include "ctrl/agg_spline_ctrl.h"
 #include "ctrl/agg_gamma_ctrl.h"
@@ -37,12 +41,13 @@ const double center_x = 350;
 const double center_y = 280;
 
 
-
-
 class gradient_polymorphic_wrapper_base
 {
 public:
     virtual int calculate(int x, int y, int) const = 0;
+};
+
+namespace agg {
 };
 
 template<class GradientF> 
@@ -85,7 +90,7 @@ class the_application : public agg::platform_support
     agg::spline_ctrl<color_type> m_spline_g;
     agg::spline_ctrl<color_type> m_spline_b;
     agg::spline_ctrl<color_type> m_spline_a;
-    agg::rbox_ctrl<color_type>   m_rbox;
+    agg::rbox_ctrl<color_type>   rbox;
 
     double m_pdx;
     double m_pdy;
@@ -173,7 +178,7 @@ public:
         m_spline_g(210, 10+40,  210+250, 5+80,  6, !flip_y),
         m_spline_b(210, 10+80,  210+250, 5+120, 6, !flip_y),
         m_spline_a(210, 10+120, 210+250, 5+160, 6, !flip_y),
-        m_rbox(10.0, 180.0, 200.0, 300.0, !flip_y),
+        rbox(10.0, 180.0, 200.0, 320.0, !flip_y),
 
         m_pdx(0.0),
         m_pdy(0.0),
@@ -194,7 +199,7 @@ public:
         add_ctrl(m_spline_g);
         add_ctrl(m_spline_b);
         add_ctrl(m_spline_a);
-        add_ctrl(m_rbox);
+        add_ctrl(rbox);
 
         m_profile.border_width(2.0, 2.0);
 
@@ -207,7 +212,7 @@ public:
         m_spline_g.border_width(1.0, 2.0);
         m_spline_b.border_width(1.0, 2.0);
         m_spline_a.border_width(1.0, 2.0);
-        m_rbox.border_width(2.0, 2.0);
+        rbox.border_width(2.0, 2.0);
 
         m_spline_r.point(0, 0.0,     1.0);
         m_spline_r.point(1, 1.0/5.0, 1.0 - 1.0/5.0);
@@ -241,15 +246,17 @@ public:
         m_spline_a.point(5, 1.0,     1.0);
         m_spline_a.update_spline();
 
-        m_rbox.add_item("Circular");
-        m_rbox.add_item("Diamond");
-        m_rbox.add_item("Linear");
-        m_rbox.add_item("XY");
-        m_rbox.add_item("sqrt(XY)");
-        m_rbox.add_item("Conic");
-        m_rbox.cur_item(0);
+        rbox.add_item("Bicircular");
+        rbox.add_item("Circular");
+        rbox.add_item("Diamond");
+        rbox.add_item("Linear");
+        rbox.add_item("XY");
+        rbox.add_item("sqrt(XY)");
+        rbox.add_item("Conic");
+        rbox.cur_item(0);
 
         FILE* fd = fopen(full_file_name("settings.dat"), "r");
+
         if(fd)
         {
             float x;
@@ -332,6 +339,7 @@ public:
         typedef agg::renderer_base<pixfmt> renderer_base;
         agg::scanline_u8 sl;
 
+
         pixfmt pixf(rbuf_window());
         renderer_base rb(pixf);
         rb.clear(agg::rgba(0, 0, 0));
@@ -343,26 +351,42 @@ public:
         agg::render_ctrl(ras, sl, rb, m_spline_g);
         agg::render_ctrl(ras, sl, rb, m_spline_b);
         agg::render_ctrl(ras, sl, rb, m_spline_a);
-        agg::render_ctrl(ras, sl, rb, m_rbox);
+        agg::render_ctrl(ras, sl, rb, rbox);
 
         double ini_scale = 1.0;
 
         agg::trans_affine mtx1;
+
         mtx1 *= agg::trans_affine_scaling(ini_scale, ini_scale);
         mtx1 *= agg::trans_affine_rotation(agg::deg2rad(0.0));
         mtx1 *= agg::trans_affine_translation(center_x, center_y);
         mtx1 *= trans_affine_resizing();
-
+#if 1
         agg::ellipse e1;
         e1.init(0.0, 0.0, 110.0, 110.0, 64);
 
+#else
+        agg::path_storage ps;
+
+        ps.move_to(-110,-110);
+        ps.line_to(-110,110);
+        ps.line_to(110,110);
+        ps.line_to(110,-110);
+        ps.line_to(-110,-110);
+        ps.close_polygon();
+#endif
+
         agg::trans_affine mtx_g1;
+
         mtx_g1 *= agg::trans_affine_scaling(ini_scale, ini_scale);
         mtx_g1 *= agg::trans_affine_scaling(m_scale, m_scale);
         mtx_g1 *= agg::trans_affine_scaling(m_scale_x, m_scale_y);
-        mtx_g1 *= agg::trans_affine_rotation(m_angle);
+        mtx_g1 *= agg::trans_affine_rotation( m_angle );
         mtx_g1 *= agg::trans_affine_translation(m_center_x, m_center_y);
+        // mtx_g1 *= agg::trans_affine_translation(center_x-110, center_y-110);
         mtx_g1 *= trans_affine_resizing();
+
+
         mtx_g1.invert();
 
 
@@ -375,9 +399,12 @@ public:
                                                     m_spline_b.spline()[i],
                                                     m_spline_a.spline()[i]));
         }
-
+#if 1
         agg::conv_transform<agg::ellipse, agg::trans_affine> t1(e1, mtx1);
-
+#else
+        agg::conv_transform<agg::path_storage, agg::trans_affine> t1(ps, mtx1);
+#endif
+        gradient_polymorphic_wrapper<agg::gradient_biradial>     gr_bicircle;
         gradient_polymorphic_wrapper<agg::gradient_radial>       gr_circle;
         gradient_polymorphic_wrapper<agg::gradient_diamond>      gr_diamond;
         gradient_polymorphic_wrapper<agg::gradient_x>            gr_x;
@@ -385,17 +412,21 @@ public:
         gradient_polymorphic_wrapper<agg::gradient_sqrt_xy>      gr_sqrt_xy;
         gradient_polymorphic_wrapper<agg::gradient_conic>        gr_conic;
 
-        gradient_polymorphic_wrapper_base* gr_ptr = &gr_circle;
+        gr_bicircle.m_gradient.set_radius(10,110);
+        gr_bicircle.m_gradient.set_center(0,150);
 
-//        gr_circle.m_gradient.init(150, 80, 80);
+        gradient_polymorphic_wrapper_base* gr_ptr = &gr_bicircle;
 
-        switch(m_rbox.cur_item())
+        // gr_circle.m_gradient.init(150, 80, 80);
+
+        switch(rbox.cur_item())
         {
-            case 1: gr_ptr = &gr_diamond; break;
-            case 2: gr_ptr = &gr_x;       break;
-            case 3: gr_ptr = &gr_xy;      break;
-            case 4: gr_ptr = &gr_sqrt_xy; break;
-            case 5: gr_ptr = &gr_conic;   break;
+            case 1: gr_ptr = &gr_circle;   break;
+            case 2: gr_ptr = &gr_diamond; break;
+            case 3: gr_ptr = &gr_x;       break;
+            case 4: gr_ptr = &gr_xy;      break;
+            case 5: gr_ptr = &gr_sqrt_xy; break;
+            case 6: gr_ptr = &gr_conic;   break;
         }
 
         typedef agg::span_interpolator_linear<> interpolator_type;
@@ -408,9 +439,11 @@ public:
         gradient_span_alloc    span_alloc;
         color_function_profile colors(color_profile, m_profile.gamma());
         interpolator_type      inter(mtx_g1);
+
         gradient_span_gen      span_gen(inter, *gr_ptr, colors, 0, 150);
 
         ras.add_path(t1);
+
         agg::render_scanlines_aa(ras, sl, rb, span_alloc, span_gen);
     }
 
