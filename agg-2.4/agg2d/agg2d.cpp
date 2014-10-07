@@ -29,8 +29,10 @@ static const double g_approxScale = 2.0;
 
 Agg2D::~Agg2D()
 {
-#ifndef AGG2D_USE_FREETYPE
+#ifdef AGG_USE_FONTS
+# ifndef AGG2D_USE_FREETYPE
     ::ReleaseDC(0, m_fontDC);
+# endif
 #endif
 }
 
@@ -106,15 +108,16 @@ Agg2D::Agg2D() :
     m_convStroke(m_convCurve),
 
     m_pathTransform(m_convCurve, m_transform),
-    m_strokeTransform(m_convStroke, m_transform),
-
-#ifdef AGG2D_USE_FREETYPE
-    m_fontEngine(),
-#else
-    m_fontDC(::GetDC(0)),
-    m_fontEngine(m_fontDC),
-#endif
-    m_fontCacheManager(m_fontEngine)
+    m_strokeTransform(m_convStroke, m_transform)
+#ifdef AGG_USE_FONTS
+# ifdef AGG2D_USE_FREETYPE
+    , m_fontEngine()
+# else
+    , m_fontDC(::GetDC(0))
+    , m_fontEngine(m_fontDC)
+# endif
+    , m_fontCacheManager(m_fontEngine)
+#endif // AGG_USE_FONTS
 {
     lineCap(m_lineCap);
     lineJoin(m_lineJoin);
@@ -135,11 +138,15 @@ void Agg2D::attach(unsigned char* buf, unsigned width, unsigned height, int stri
     lineWidth(1.0),
     lineColor(0,0,0);
     fillColor(255,255,255);
+#ifdef AGG_USE_FONTS
     textAlignment(AlignLeft, AlignBottom);
+#endif
     clipBox(0, 0, width, height);
     lineCap(CapRound);
     lineJoin(JoinRound);
+#ifdef AGG_USE_FONTS
     flipText(false);
+#endif
     imageFilter(Bilinear);
     imageResample(NoResample);
     m_masterAlpha = 1.0;
@@ -901,7 +908,7 @@ void Agg2D::polyline(double* xy, int numPoints)
     drawPath(StrokeOnly);
 }
 
-
+#ifdef AGG_USE_FONTS
 //------------------------------------------------------------------------
 void Agg2D::flipText(bool flip)
 {
@@ -1077,7 +1084,7 @@ void Agg2D::text(double x, double y, const char* str, bool roundOff, double ddx,
         }
     }
 }
-
+#endif // AGG_USE_FONTS
 //------------------------------------------------------------------------
 void Agg2D::resetPath() { m_path.remove_all(); }
 
@@ -1701,6 +1708,7 @@ void Agg2D::render(bool fillColor)
     }
 }
 
+#ifdef AGG_USE_FONTS
 //------------------------------------------------------------------------
 void Agg2D::render(FontRasterizer& ras, FontScanline& sl)
 {
@@ -1713,6 +1721,7 @@ void Agg2D::render(FontRasterizer& ras, FontScanline& sl)
         Agg2DRenderer::render(*this, m_renBaseComp, m_renSolidComp, ras, sl);
     }
 }
+#endif // AGG_USE_FONTS
 
 //------------------------------------------------------------------------
 void Agg2D::renderImage(const Image& img, int x1, int y1, int x2, int y2,
